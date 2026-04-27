@@ -474,6 +474,10 @@ class SelectNavBarShortcutPopup extends StatelessWidget {
           shortcutAppSettingKey: shortcutAppSettingKey,
           navBarIconDataKey: "loans",
         ),
+        NavBarShortcutSelection(
+          shortcutAppSettingKey: shortcutAppSettingKey,
+          navBarIconDataKey: "household",
+        ),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:budget/database/tables.dart';
 import 'package:budget/functions.dart';
 import 'package:budget/pages/addTransactionPage.dart';
+import 'package:budget/pages/appliancesPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/notificationsGlobal.dart';
@@ -99,6 +100,9 @@ Future<bool> runNotificationPayLoads(context) async {
         routesToPopAfterDelete: RoutesToPopAfterDelete.One,
       ),
     );
+    return true;
+  } else if (notificationPayload?.split("?")[0] == "maintenanceTask") {
+    pushRoute(context, const AppliancesPage());
     return true;
   }
   notificationPayload = "";

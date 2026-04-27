@@ -158,5 +158,13 @@ Map<String, NavBarIconData> getNavBarIconsData() {
       labelLong: "goals-details",
       navigationIndexedStackIndex: 15,
     ),
+    "household": NavBarIconData(
+      iconData: appStateSettings["outlinedIcons"]
+          ? Icons.cottage_outlined
+          : Icons.cottage_rounded,
+      label: "household",
+      labelLong: "household-management",
+      navigationIndexedStackIndex: 18,
+    ),
   };
 }

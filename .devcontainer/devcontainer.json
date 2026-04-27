@@ -1,0 +1,31 @@
+{
+  "name": "Cashew Flutter",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/app",
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter",
+        "usernamehw.errorlens",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "dart.flutterSdkPath": "/opt/flutter",
+        "dart.lineLength": 100,
+        "editor.formatOnSave": true,
+        "[dart]": {
+          "editor.defaultFormatter": "Dart-Code.dart-code"
+        }
+      }
+    }
+  },
+  "forwardPorts": [8080],
+  "postCreateCommand": "flutter pub get",
+  "remoteEnv": {
+    "SUPABASE_URL": "${localEnv:SUPABASE_URL}",
+    "SUPABASE_ANON_KEY": "${localEnv:SUPABASE_ANON_KEY}"
+  }
+}

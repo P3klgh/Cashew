@@ -28,6 +28,7 @@ import 'package:budget/pages/transactionsListPage.dart';
 import 'package:budget/pages/upcomingOverdueTransactionsPage.dart';
 import 'package:budget/pages/walletDetailsPage.dart';
 import 'package:budget/pages/creditDebtTransactionsPage.dart';
+import 'package:budget/pages/householdPage.dart';
 import 'package:budget/struct/currencyFunctions.dart';
 import 'package:budget/struct/databaseGlobal.dart';
 import 'package:budget/struct/defaultPreferences.dart';
@@ -35,6 +36,8 @@ import 'package:budget/struct/navBarIconsData.dart';
 import 'package:budget/struct/quickActions.dart';
 import 'package:budget/struct/settings.dart';
 import 'package:budget/struct/shareBudget.dart';
+import 'package:budget/struct/householdSync.dart';
+import 'package:budget/struct/maintenanceNotifications.dart';
 import 'package:budget/struct/syncClient.dart';
 import 'package:budget/widgets/accountAndBackup.dart';
 import 'package:budget/widgets/bottomNavBar.dart';
@@ -288,6 +291,7 @@ GlobalKey<ObjectivesListPageState> objectivesListPageStateKey = GlobalKey();
 GlobalKey<UpcomingOverdueTransactionsState>
     upcomingOverdueTransactionsStateKey = GlobalKey();
 GlobalKey<CreditDebtTransactionsState> creditDebtTransactionsKey = GlobalKey();
+GlobalKey<HouseholdPageState> householdPageStateKey = GlobalKey();
 GlobalKey<ProductsState> purchasesStateKey = GlobalKey();
 GlobalKey<AccountsPageState> accountsPageStateKey = GlobalKey();
 GlobalKey<GoogleAccountLoginButtonState> settingsGoogleAccountLoginButtonKey =
@@ -377,6 +381,7 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
         key: upcomingOverdueTransactionsStateKey,
         overdueTransactions: null), //16
     CreditDebtTransactions(key: creditDebtTransactionsKey, isCredit: null), //17
+    HouseholdPage(key: householdPageStateKey), //18
   ];
 
   late int currentPage = widget.widthSideNavigationBar <= 0
@@ -449,6 +454,8 @@ class PageNavigationFrameworkState extends State<PageNavigationFramework> {
       // Should do this after syncing and after the subscriptions/upcoming transactions auto paid for
       // The upcoming transactions may have been modified after a sync
       await setUpcomingNotifications(context);
+      await scheduleMaintenanceNotifications();
+      subscribeToHouseholdChanges();
 
       await database.deleteWanderingTransactions();
       await database.deleteWanderingTitles();
