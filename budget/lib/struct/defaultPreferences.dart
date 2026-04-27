@@ -328,6 +328,10 @@ Future<Map<String, dynamic>> getDefaultPreferences() async {
 
     // This key is used as a migration
     // "migratedSetLongTermLoansAmountTo0": false,
+
+    // ── Household module settings ──────────────────────────────────────────
+    "householdMaintenanceNotificationsEnabled": true,
+    "householdId": "", // shared UUID scoping all household data in Supabase
   };
 }
 

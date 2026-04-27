@@ -26,7 +26,7 @@ import 'package:budget/pages/activityPage.dart';
 import 'package:flutter/material.dart' show RangeValues;
 part 'tables.g.dart';
 
-int schemaVersionGlobal = 46;
+int schemaVersionGlobal = 47;
 
 // To update and migrate the database, check the README
 
@@ -234,6 +234,13 @@ enum UpdateLogType {
   Objective,
   Unused, // Was for the scanner template, but is now unused
 }
+
+// Household module enums
+enum CookingAssignmentStatus { pending, cooked, skipped }
+
+enum HouseholdRecurrence { none, daily, weekly, monthly }
+
+enum MaintenanceIntervalUnit { days, weeks, months, years }
 
 @DataClassName('DeleteLog')
 class DeleteLogs extends Table {
@@ -672,6 +679,122 @@ class CategoryWithTotal {
 //       transactionType != TransactionSpecialType.debt;
 // }
 
+// ─── Household module tables ──────────────────────────────────────────────
+
+@DataClassName('HouseholdMember')
+class HouseholdMembers extends Table {
+  TextColumn get memberPk =>
+      text().clientDefault(() => uuid.v4())();
+  TextColumn get supabaseUid => text()();
+  TextColumn get displayName => text()();
+  TextColumn get email => text()();
+  TextColumn get colour =>
+      text().withLength(max: COLOUR_LIMIT).nullable()();
+  IntColumn get order => integer().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {memberPk};
+}
+
+@DataClassName('CookingAssignment')
+class CookingAssignments extends Table {
+  TextColumn get assignmentPk =>
+      text().clientDefault(() => uuid.v4())();
+  TextColumn get memberFk =>
+      text().references(HouseholdMembers, #memberPk)();
+  TextColumn get mealName => text().withLength(max: NAME_LIMIT)();
+  TextColumn get mealType => text().withLength(max: NAME_LIMIT).nullable()();
+  TextColumn get note => text().withLength(max: NOTE_LIMIT).nullable()();
+  DateTimeColumn get assignedDate => dateTime()();
+  IntColumn get recurrence =>
+      intEnum<HouseholdRecurrence>().withDefault(Constant(0))();
+  IntColumn get recurrenceDayOfWeek => integer().nullable()();
+  IntColumn get status =>
+      intEnum<CookingAssignmentStatus>().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {assignmentPk};
+}
+
+@DataClassName('GroceryList')
+class GroceryLists extends Table {
+  TextColumn get listPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get name => text().withLength(max: NAME_LIMIT)();
+  TextColumn get colour =>
+      text().withLength(max: COLOUR_LIMIT).nullable()();
+  BoolColumn get isArchived =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get order => integer().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {listPk};
+}
+
+@DataClassName('GroceryItem')
+class GroceryItems extends Table {
+  TextColumn get itemPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get listFk =>
+      text().references(GroceryLists, #listPk)();
+  TextColumn get name => text().withLength(max: NAME_LIMIT)();
+  TextColumn get category =>
+      text().withLength(max: NAME_LIMIT).nullable()();
+  RealColumn get quantity => real().withDefault(const Constant(1.0))();
+  TextColumn get unit => text().withLength(max: 50).nullable()();
+  BoolColumn get isPurchased =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get isRecurring =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get order => integer().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {itemPk};
+}
+
+@DataClassName('Appliance')
+class Appliances extends Table {
+  TextColumn get appliancePk =>
+      text().clientDefault(() => uuid.v4())();
+  TextColumn get name => text().withLength(max: NAME_LIMIT)();
+  TextColumn get iconName => text().nullable()();
+  TextColumn get note => text().withLength(max: NOTE_LIMIT).nullable()();
+  IntColumn get order => integer().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {appliancePk};
+}
+
+@DataClassName('MaintenanceTask')
+class MaintenanceTasks extends Table {
+  TextColumn get taskPk => text().clientDefault(() => uuid.v4())();
+  TextColumn get applianceFk =>
+      text().references(Appliances, #appliancePk)();
+  TextColumn get taskName => text().withLength(max: NAME_LIMIT)();
+  TextColumn get note => text().withLength(max: NOTE_LIMIT).nullable()();
+  IntColumn get intervalValue => integer().withDefault(Constant(1))();
+  IntColumn get intervalUnit =>
+      intEnum<MaintenanceIntervalUnit>().withDefault(Constant(1))();
+  DateTimeColumn get lastMaintainedDate => dateTime().nullable()();
+  DateTimeColumn get nextDueDate => dateTime().nullable()();
+  BoolColumn get notificationsEnabled =>
+      boolean().withDefault(const Constant(true))();
+  IntColumn get order => integer().withDefault(Constant(0))();
+  DateTimeColumn get dateCreated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  @override
+  Set<Column> get primaryKey => {taskPk};
+}
+
 // when adding a new table, make sure to enable syncing and that
 // all relevant delete queries create delete logs
 // Modify processSyncLogs to process the update/creation and delete!
@@ -688,6 +811,12 @@ class CategoryWithTotal {
   ScannerTemplates,
   DeleteLogs,
   Objectives,
+  HouseholdMembers,
+  CookingAssignments,
+  GroceryLists,
+  GroceryItems,
+  Appliances,
+  MaintenanceTasks,
 ])
 class FinanceDatabase extends _$FinanceDatabase {
   // FinanceDatabase() : super(_openConnection());
@@ -1162,6 +1291,25 @@ class FinanceDatabase extends _$FinanceDatabase {
                 print(
                     "Migration Error: Error creating column objectives.type " +
                         e.toString());
+              }
+            },
+            from46To47: (m, schema) async {
+              print("Migration 46 to 47 — household tables");
+              for (final entry in {
+                'householdMembers': schema.householdMembers,
+                'cookingAssignments': schema.cookingAssignments,
+                'groceryLists': schema.groceryLists,
+                'groceryItems': schema.groceryItems,
+                'appliances': schema.appliances,
+                'maintenanceTasks': schema.maintenanceTasks,
+              }.entries) {
+                try {
+                  await m.createTable(entry.value);
+                } catch (e) {
+                  print(
+                      "Migration Error: householdTables.${entry.key} " +
+                          e.toString());
+                }
               }
             },
           ),
@@ -7602,6 +7750,133 @@ class FinanceDatabase extends _$FinanceDatabase {
     await updateBatchTransactionsOnly(transactionsToUpdate);
     return transactionsToUpdate.length;
   }
+
+  // ─── Household Members ────────────────────────────────────────────────────
+
+  Stream<List<HouseholdMember>> watchAllHouseholdMembers() =>
+      (select(householdMembers)
+            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
+          .watch();
+
+  Future<int> createOrUpdateHouseholdMember(
+          HouseholdMembersCompanion entry) =>
+      into(householdMembers).insertOnConflictUpdate(entry);
+
+  Future<int> deleteHouseholdMember(String memberPk) =>
+      (delete(householdMembers)
+            ..where((t) => t.memberPk.equals(memberPk)))
+          .go();
+
+  // ─── Cooking Assignments ──────────────────────────────────────────────────
+
+  Stream<List<CookingAssignment>> watchCookingAssignments(
+      {DateTime? from, DateTime? to}) {
+    final query = select(cookingAssignments);
+    if (from != null)
+      query.where((t) => t.assignedDate.isBiggerOrEqualValue(from));
+    if (to != null)
+      query.where((t) => t.assignedDate.isSmallerOrEqualValue(to));
+    query.orderBy([(t) => OrderingTerm(expression: t.assignedDate)]);
+    return query.watch();
+  }
+
+  Future<int> createOrUpdateCookingAssignment(
+          CookingAssignmentsCompanion entry) =>
+      into(cookingAssignments).insertOnConflictUpdate(entry);
+
+  Future<int> deleteCookingAssignment(String assignmentPk) =>
+      (delete(cookingAssignments)
+            ..where((t) => t.assignmentPk.equals(assignmentPk)))
+          .go();
+
+  // ─── Grocery Lists ────────────────────────────────────────────────────────
+
+  Stream<List<GroceryList>> watchGroceryLists() =>
+      (select(groceryLists)
+            ..where((t) => t.isArchived.equals(false))
+            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
+          .watch();
+
+  Stream<List<GroceryList>> watchArchivedGroceryLists() =>
+      (select(groceryLists)
+            ..where((t) => t.isArchived.equals(true))
+            ..orderBy([(t) => OrderingTerm(
+                expression: t.dateCreated, mode: OrderingMode.desc)]))
+          .watch();
+
+  Future<int> createOrUpdateGroceryList(GroceryListsCompanion entry) =>
+      into(groceryLists).insertOnConflictUpdate(entry);
+
+  Future<int> deleteGroceryList(String listPk) =>
+      (delete(groceryLists)..where((t) => t.listPk.equals(listPk))).go();
+
+  // ─── Grocery Items ────────────────────────────────────────────────────────
+
+  Stream<List<GroceryItem>> watchGroceryItemsForList(String listPk) =>
+      (select(groceryItems)
+            ..where((t) => t.listFk.equals(listPk))
+            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
+          .watch();
+
+  Future<List<GroceryItem>> getRecurringGroceryItems() =>
+      (select(groceryItems)
+            ..where((t) => t.isRecurring.equals(true)))
+          .get();
+
+  Future<int> createOrUpdateGroceryItem(GroceryItemsCompanion entry) =>
+      into(groceryItems).insertOnConflictUpdate(entry);
+
+  Future<int> deleteGroceryItem(String itemPk) =>
+      (delete(groceryItems)..where((t) => t.itemPk.equals(itemPk))).go();
+
+  Future<int> clearPurchasedItems(String listPk) =>
+      (delete(groceryItems)
+            ..where((t) =>
+                t.listFk.equals(listPk) & t.isPurchased.equals(true)))
+          .go();
+
+  // ─── Appliances ───────────────────────────────────────────────────────────
+
+  Stream<List<Appliance>> watchAllAppliances() =>
+      (select(appliances)
+            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
+          .watch();
+
+  Future<int> createOrUpdateAppliance(AppliancesCompanion entry) =>
+      into(appliances).insertOnConflictUpdate(entry);
+
+  Future<int> deleteAppliance(String appliancePk) =>
+      (delete(appliances)
+            ..where((t) => t.appliancePk.equals(appliancePk)))
+          .go();
+
+  // ─── Maintenance Tasks ────────────────────────────────────────────────────
+
+  Stream<List<MaintenanceTask>> watchMaintenanceTasksForAppliance(
+          String appliancePk) =>
+      (select(maintenanceTasks)
+            ..where((t) => t.applianceFk.equals(appliancePk))
+            ..orderBy([(t) => OrderingTerm(expression: t.order)]))
+          .watch();
+
+  Future<List<MaintenanceTask>> getAllMaintenanceTasksDue() =>
+      (select(maintenanceTasks)
+            ..where((t) => t.notificationsEnabled.equals(true)))
+          .get();
+
+  Future<int> createOrUpdateMaintenanceTask(
+          MaintenanceTasksCompanion entry) =>
+      into(maintenanceTasks).insertOnConflictUpdate(entry);
+
+  Future<int> deleteMaintenanceTask(String taskPk) =>
+      (delete(maintenanceTasks)
+            ..where((t) => t.taskPk.equals(taskPk)))
+          .go();
+
+  Future<int> deleteMaintenanceTasksForAppliance(String appliancePk) =>
+      (delete(maintenanceTasks)
+            ..where((t) => t.applianceFk.equals(appliancePk)))
+          .go();
 }
 
 class TotalWithCount {

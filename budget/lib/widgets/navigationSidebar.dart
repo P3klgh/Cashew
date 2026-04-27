@@ -293,6 +293,10 @@ class NavigationSidebarState extends State<NavigationSidebar> {
                                 navBarIconDataKey: "allSpending",
                                 currentPageIndex: selectedIndex,
                               ),
+                              NavigationSidebarButtonWithNavBarIconData(
+                                navBarIconDataKey: "household",
+                                currentPageIndex: selectedIndex,
+                              ),
                               EditDataButtons(selectedIndex: selectedIndex),
                             ],
                           ),

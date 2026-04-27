@@ -34,6 +34,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'firebase_options.dart';
+import 'package:budget/struct/supabaseGlobal.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 // Requires hot restart when changed
@@ -47,6 +48,7 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await initSupabase();
     await EasyLocalization.ensureInitialized();
     sharedPreferences = await SharedPreferences.getInstance();
     database = await constructDb('db');
